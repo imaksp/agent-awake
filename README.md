@@ -105,10 +105,15 @@ Needs Xcode or the command line tools, and macOS 14 or later.
 
 ### Releasing
 
-Bump `CFBundleShortVersionString` in `Resources/Info.plist`, commit, and push a
-matching tag (`git tag v0.2.0 && git push origin v0.2.0`). The Release workflow tests,
-builds the universal zip on a macOS runner and publishes it. Running the workflow by
-hand from the Actions tab is a dry run that publishes nothing.
+```sh
+./build.sh publish 0.2.0
+```
+
+It checks that `main` is clean and in sync with GitHub and that the version is newer,
+then runs the tests. It sets the version in `Resources/Info.plist`, commits, tags
+`v0.2.0` and pushes the commit and tag together. The Release workflow then builds the
+universal zip on a macOS runner and publishes it. Running the workflow by hand from
+the Actions tab is a dry run that publishes nothing.
 
 ## License
 

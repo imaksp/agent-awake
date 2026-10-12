@@ -4,12 +4,20 @@
 #   ./build.sh test      run the transcript-detection tests
 #   ./build.sh release   build a universal (Apple silicon + Intel) app and zip it for
 #                        a GitHub release, in build/
+#   ./build.sh publish X.Y.Z
+#                        set the version, commit, tag vX.Y.Z and push; the Release
+#                        workflow on GitHub builds and publishes it
 set -euo pipefail
 cd "$(dirname "$0")"
 
 MIN_MACOS=14.0
 APP=build/AgentAwake.app
 mkdir -p build
+
+die() {
+  echo "$*" >&2
+  exit 1
+}
 
 # Builds $APP for each architecture given, merged into one binary if more than one.
 build_app() {
@@ -42,9 +50,42 @@ case "${1:-}" in
     shasum -a 256 "$zip"
     exit 0
     ;;
+  publish)
+    version="${2:-}"
+    number='(0|[1-9][0-9]*)'
+    [[ "$version" =~ ^$number\.$number\.$number$ ]] || die "usage: $0 publish X.Y.Z"
+    tag="v$version"
+    plist=Resources/Info.plist
+    current=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$plist")
+    [ "$(git branch --show-current)" = main ] || die "Publish from main."
+    [ -z "$(git status --porcelain)" ] || die "Commit or stash your changes first."
+    git fetch --quiet --tags origin main
+    [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || die "main isn't in sync with origin/main."
+    ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null || die "$tag already exists."
+    newest=$(printf '%s\n%s\n' "$current" "$version" | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)
+    [ "$newest" = "$version" ] && [ "$version" != "$current" ] || die "$version isn't newer than $current."
+    "./$(basename "$0")" test  # we're in the script's folder after the cd above
+    build=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$plist")
+    # The push is atomic, so the tag never reaches GitHub without the commit that sets
+    # its version. If any step fails, undo the local commit and tag: the checks above
+    # guarantee the checkout matched origin/main with nothing uncommitted.
+    if ! {
+      /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $version" -c "Set :CFBundleVersion $((build + 1))" "$plist" \
+        && git commit -q -m "chore: release $tag" "$plist" \
+        && git tag -a "$tag" -m "Agent Awake $version" \
+        && git push --atomic origin main "$tag"
+    }; then
+      git tag -d "$tag" >/dev/null 2>&1 || true
+      git reset -q --hard origin/main
+      die "Publishing $tag failed, so the local release commit and tag were undone." \
+        "If the push may have got through anyway, check GitHub before retrying."
+    fi
+    echo "Pushed $tag. The Release workflow on GitHub builds and publishes it."
+    exit 0
+    ;;
   "") ;;
   *)
-    echo "usage: $0 [test|release]" >&2
+    echo "usage: $0 [test|release|publish X.Y.Z]" >&2
     exit 2
     ;;
 esac

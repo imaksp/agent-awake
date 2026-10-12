@@ -1,8 +1,7 @@
 name: Release
 
-# To publish a release: bump CFBundleShortVersionString in Resources/Info.plist,
-# commit, then push a matching tag:
-#   git tag v0.2.0 && git push origin v0.2.0
+# To publish a release: `./build.sh publish 0.2.0`, which sets the version in
+# Resources/Info.plist, commits, and pushes a matching v0.2.0 tag.
 # Running it by hand (Actions tab, or `gh workflow run release.yml`) is a dry run:
 # it tests and builds without publishing anything.
 on:
