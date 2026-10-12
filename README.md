@@ -5,6 +5,26 @@ lid closed. When the agent finishes, the Mac sleeps normally again.
 
 I made it for myself. Use it or fork it if it's useful to you.
 
+## Install
+
+Download `AgentAwake-x.y.z.zip` from [Releases](../../releases/latest), unzip it, and
+move `AgentAwake.app` to `~/Applications` or `/Applications` **before opening it**. A
+first launch from Downloads runs from a temporary path, which Start at Login could
+end up pointing at. It runs on Apple silicon and Intel Macs with macOS 14 or later.
+
+**macOS will refuse to open it the first time.** The app is ad-hoc signed by an
+unverified developer and not notarized by Apple. Notarizing needs a paid Apple
+Developer account ($99 a year), and I'm not paying that for a small side project.
+To open it anyway, do either of these once:
+
+- Open the app, dismiss the warning, then go to **System Settings → Privacy &
+  Security** and click **Open Anyway**. It asks for your password, and the button
+  appears only for about an hour after the blocked open.
+- Or run `xattr -dr com.apple.quarantine /path/to/AgentAwake.app`.
+
+If you'd rather not trust a downloaded binary, build it yourself from source (below).
+A build made on your own Mac never triggers the warning.
+
 ## How it decides
 
 It reads the logs each agent already writes, so nothing needs installing in the agent
@@ -79,6 +99,7 @@ Needs Xcode or the command line tools, and macOS 14 or later.
 ```sh
 ./build.sh          # build, ad-hoc sign, install to ~/Applications and launch
 ./build.sh test     # detection tests
+./build.sh release  # universal app, zipped into build/ for a GitHub release
 ~/Applications/AgentAwake.app/Contents/MacOS/AgentAwake --scan   # what it sees right now
 ```
 
