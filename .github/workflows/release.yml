@@ -1,0 +1,61 @@
+name: Release
+
+# To publish a release: bump CFBundleShortVersionString in Resources/Info.plist,
+# commit, then push a matching tag:
+#   git tag v0.2.0 && git push origin v0.2.0
+# Running it by hand (Actions tab, or `gh workflow run release.yml`) is a dry run:
+# it tests and builds without publishing anything.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write # gh release create
+
+concurrency:
+  group: release-${{ github.ref }}
+
+jobs:
+  release:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false # gh reads GH_TOKEN; build.sh needs no token
+
+      - name: Read the app version
+        id: version
+        run: echo "version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Resources/Info.plist)" >> "$GITHUB_OUTPUT"
+
+      - name: Check the tag matches it
+        if: github.ref_type == 'tag'
+        env:
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if [ "$TAG" != "v$VERSION" ]; then
+            echo "::error::Tag $TAG doesn't match version $VERSION in Resources/Info.plist"
+            exit 1
+          fi
+
+      - name: Test
+        run: ./build.sh test
+
+      - name: Build the universal zip
+        run: ./build.sh release
+
+      - name: Publish
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          zip="build/AgentAwake-$VERSION.zip"
+          sha=$(shasum -a 256 "$zip" | cut -d' ' -f1)
+          { cat .github/release-notes.md; printf '\nSHA-256 of `%s`: `%s`\n' "${zip##*/}" "$sha"; } > "$RUNNER_TEMP/notes.md"
+          # The notes file goes above GitHub's generated list of changes.
+          gh release create "$TAG" "$zip" --verify-tag --title "Agent Awake $VERSION" \
+            --notes-file "$RUNNER_TEMP/notes.md" --generate-notes

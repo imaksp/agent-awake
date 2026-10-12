@@ -103,6 +103,13 @@ Needs Xcode or the command line tools, and macOS 14 or later.
 ~/Applications/AgentAwake.app/Contents/MacOS/AgentAwake --scan   # what it sees right now
 ```
 
+### Releasing
+
+Bump `CFBundleShortVersionString` in `Resources/Info.plist`, commit, and push a
+matching tag (`git tag v0.2.0 && git push origin v0.2.0`). The Release workflow tests,
+builds the universal zip on a macOS runner and publishes it. Running the workflow by
+hand from the Actions tab is a dry run that publishes nothing.
+
 ## License
 
 MIT
